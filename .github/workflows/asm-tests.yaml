@@ -1,18 +1,25 @@
-name: Test PIC16F84A Assembly and Simulation
+name: Test PIC16F84A Assembly Projects
 
 on:
   push:
     paths:
-      - '**.inc'
-      - '**.asm'
+      - 'asm-**.X/main.asm'
   pull_request:
     paths:
-      - '**.inc'
-      - '**.asm'
+      - 'asm-**.X/main.asm'
 
 jobs:
   assemble-and-simulate:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        project: [
+          'asm-a01.X', 'asm-a02.X', 'asm-a03.X', 'asm-a04.X', 'asm-a05.X',
+          'asm-a06.X', 'asm-a07.X', 'asm-a08.X', 'asm-a09.X', 'asm-a10.X',
+          'asm-b01.X', 'asm-b02.X', 'asm-b03.X', 'asm-b04.X', 'asm-b05.X',
+          'asm-b06.X', 'asm-b07.X', 'asm-b08.X', 'asm-b09.X', 'asm-b10.X',
+          'asm-b11.X', 'asm-b12.X', 'asm-b13.X', 'asm-b14.X', 'asm-b15.X'
+        ]
     steps:
     - uses: actions/checkout@v3
 
@@ -27,49 +34,54 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y gpsim
 
-    - name: Assemble P16F84A.INC
+    - name: Assemble main.asm
       run: |
-        /opt/microchip/xc8/v2.40/pic-as/bin/pic-as -mcpu=16F84A P16F84A.INC -o P16F84A.hex
+        cd ${{ matrix.project }}
+        /opt/microchip/xc8/v2.40/pic-as/bin/pic-as -mcpu=16F84A main.asm -o main.hex
       continue-on-error: true
 
     - name: Check for assembly errors
       run: |
-        if grep -q "Error" P16F84A.err; then
-          echo "Errors found in assembly:"
-          cat P16F84A.err
+        cd ${{ matrix.project }}
+        if grep -q "Error" main.err; then
+          echo "Errors found in assembly of ${{ matrix.project }}/main.asm:"
+          cat main.err
           exit 1
         else
-          echo "Assembly successful"
+          echo "Assembly of ${{ matrix.project }}/main.asm successful"
         fi
 
     - name: Create GPSIM script
       run: |
-        echo "load p16f84a P16F84A.hex" > sim_script.stc
+        cd ${{ matrix.project }}
+        echo "load p16f84a main.hex" > sim_script.stc
         echo "run 1000" >> sim_script.stc
         echo "dump" >> sim_script.stc
         echo "quit" >> sim_script.stc
 
     - name: Run simulation
       run: |
+        cd ${{ matrix.project }}
         gpsim -s sim_script.stc > simulation_results.txt
       continue-on-error: true
 
     - name: Check simulation results
       run: |
+        cd ${{ matrix.project }}
         if grep -q "ERROR" simulation_results.txt; then
-          echo "Errors found in simulation:"
+          echo "Errors found in simulation of ${{ matrix.project }}/main.asm:"
           cat simulation_results.txt
           exit 1
         else
-          echo "Simulation successful"
+          echo "Simulation of ${{ matrix.project }}/main.asm successful"
           cat simulation_results.txt
         fi
 
-    - name: Upload error logs and simulation results
+    - name: Upload test results
       uses: actions/upload-artifact@v3
       if: always()
       with:
-        name: test-results
+        name: test-results-${{ matrix.project }}
         path: |
-          P16F84A.err
-          simulation_results.txt
+          ${{ matrix.project }}/main.err
+          ${{ matrix.project }}/simulation_results.txt
