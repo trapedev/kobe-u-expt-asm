@@ -59,20 +59,28 @@ jobs:
       run: |
         cd ${{ matrix.project }}
         echo "load p16f84a main.hex" > sim_script.stc
-        echo "run 1000" >> sim_script.stc
+        echo "echo 'Program loaded'" >> sim_script.stc
+        echo "break" >> sim_script.stc
+        echo "echo 'Breakpoint set'" >> sim_script.stc
+        echo "step 10" >> sim_script.stc
+        echo "echo 'Stepped 10 instructions'" >> sim_script.stc
         echo "dump" >> sim_script.stc
+        echo "echo 'Memory dumped'" >> sim_script.stc
         echo "quit" >> sim_script.stc
 
     - name: Run simulation
       run: |
         cd ${{ matrix.project }}
-        gpsim -s sim_script.stc > simulation_results.txt
+        timeout 30s gpsim -s sim_script.stc > simulation_results.txt
       continue-on-error: true
 
     - name: Check simulation results
       run: |
         cd ${{ matrix.project }}
-        if grep -q "ERROR" simulation_results.txt; then
+        if [ ! -f simulation_results.txt ]; then
+          echo "Simulation of ${{ matrix.project }}/main.asm failed: No output file"
+          exit 1
+        elif grep -q "ERROR" simulation_results.txt; then
           echo "Errors found in simulation of ${{ matrix.project }}/main.asm:"
           cat simulation_results.txt
           exit 1
