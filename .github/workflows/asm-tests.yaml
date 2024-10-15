@@ -1,0 +1,75 @@
+name: Test PIC16F84A Assembly and Simulation
+
+on:
+  push:
+    paths:
+      - '**.inc'
+      - '**.asm'
+  pull_request:
+    paths:
+      - '**.inc'
+      - '**.asm'
+
+jobs:
+  assemble-and-simulate:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install MPLAB XC8 Compiler
+      run: |
+        wget -q https://ww1.microchip.com/downloads/aemDocuments/documents/DEV/ProductDocuments/SoftwareTools/xc8-v2.40-full-install-linux-x64-installer.run
+        chmod +x xc8-v2.40-full-install-linux-x64-installer.run
+        sudo ./xc8-v2.40-full-install-linux-x64-installer.run --mode unattended --unattendedmodeui none --netservername localhost --LicenseType FreeMode
+
+    - name: Install GPSIM
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gpsim
+
+    - name: Assemble P16F84A.INC
+      run: |
+        /opt/microchip/xc8/v2.40/pic-as/bin/pic-as -mcpu=16F84A P16F84A.INC -o P16F84A.hex
+      continue-on-error: true
+
+    - name: Check for assembly errors
+      run: |
+        if grep -q "Error" P16F84A.err; then
+          echo "Errors found in assembly:"
+          cat P16F84A.err
+          exit 1
+        else
+          echo "Assembly successful"
+        fi
+
+    - name: Create GPSIM script
+      run: |
+        echo "load p16f84a P16F84A.hex" > sim_script.stc
+        echo "run 1000" >> sim_script.stc
+        echo "dump" >> sim_script.stc
+        echo "quit" >> sim_script.stc
+
+    - name: Run simulation
+      run: |
+        gpsim -s sim_script.stc > simulation_results.txt
+      continue-on-error: true
+
+    - name: Check simulation results
+      run: |
+        if grep -q "ERROR" simulation_results.txt; then
+          echo "Errors found in simulation:"
+          cat simulation_results.txt
+          exit 1
+        else
+          echo "Simulation successful"
+          cat simulation_results.txt
+        fi
+
+    - name: Upload error logs and simulation results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results
+        path: |
+          P16F84A.err
+          simulation_results.txt
