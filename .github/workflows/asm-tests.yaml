@@ -2,9 +2,13 @@ name: Test PIC16F84A Assembly Projects
 
 on:
   push:
+    branches:
+      - main
     paths:
       - 'asm-**.X/main.asm'
   pull_request:
+    branches:
+      - main
     paths:
       - 'asm-**.X/main.asm'
 
